@@ -24,7 +24,8 @@ services:
     image: postgres:latest
     environment:
       POSTGRES_DB: channel_chat
-      POSTGRES_USER: postgres
+      POSTGRES_USER: channel_chat
       POSTGRES_PASSWORD: password123
-
+    volumes:
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
 # No need for a separate Nginx service, as it's included in the frontend service
