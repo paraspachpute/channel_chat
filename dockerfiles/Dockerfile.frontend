@@ -1,0 +1,46 @@
+FROM node:6.0.3 as builder
+
+# Set the working directory
+WORKDIR /app
+
+# Install npm and Node.js dependencies
+COPY package*.json ./
+RUN npm install
+
+# Copy the entire frontend directory
+COPY . .
+
+# Build the frontend
+RUN npm run less
+RUN npm run build
+COPY nginx.conf /etc/nginx/nginx.conf
+# Use a temporary image to run the collectstatic command
+FROM python:3.4-slim as collector
+
+WORKDIR /app
+
+# Copy only the necessary files from the frontend
+COPY --from=builder /app/build /app/build
+
+# Run the collectstatic command
+RUN apt-get update \
+    && apt-get install -y gettext \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/* \
+    && mkdir /static \
+    && python3 manage.py collectstatic --no-input
+
+# Use Nginx to serve the static files
+FROM nginx:latest
+
+WORKDIR /usr/share/nginx/html
+# Copy static files from the build stage
+COPY --from=builder /app/build /usr/share/nginx/html
+# Copy static files from the collector stage
+COPY --from=collector /static /usr/share/nginx/html/static
+
+# Expose the necessary ports
+EXPOSE 80
+
+# Nginx is set to run in the foreground by default
+CMD ["nginx", "-g", "daemon off;"]
